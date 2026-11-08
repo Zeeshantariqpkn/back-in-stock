@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notify me when it's back</title>
+<style>
+  :root{
+    --bg:#FFFFFF; --ink:#2B2A27; --muted:#6B6862; --line:#E6E2DA; --soft:#F6F4EF;
+    --accent:#2B2A27; --accent-ink:#FFFFFF; --ok:#1F6B3A; --ok-bg:#E4F1E8; --err:#B3261E; --err-bg:#FCEDEC;
+    --focus:#8C7A5B;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:transparent}
+  body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);padding:12px}
+  .card{max-width:440px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#C9A227}
+  h1{font-size:20px;line-height:1.25;margin:8px 0 4px}
+  .sub{margin:0 0 18px;color:var(--muted)}
+  label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
+  .field{margin-bottom:14px}
+  input{width:100%;font:inherit;color:inherit;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;outline:none;transition:border-color .15s, box-shadow .15s}
+  input:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(140,122,91,.18)}
+  input[aria-invalid=true]{border-color:var(--err)}
+  .product{display:none;align-items:center;gap:12px;background:var(--soft);border-radius:12px;padding:12px 14px;margin:-4px 0 14px}
+  .product.show{display:flex}
+  .thumb{flex:none;width:40px;height:40px;border-radius:9px;background:#E9E4D8;display:grid;place-items:center;font-weight:700;color:#8C7A5B}
+  .pname{font-weight:600;line-height:1.3}
+  .pmeta{font-size:13px;color:var(--muted)}
+  .badge{margin-left:auto;flex:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:4px 8px;border-radius:999px;background:#F1E4DE;color:#9A4A2B}
+  .badge.in{background:var(--ok-bg);color:var(--ok)}
+  button{width:100%;font:inherit;font-weight:600;border:0;border-radius:10px;padding:13px 16px;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s, transform .05s}
+  button:hover{opacity:.92} button:active{transform:translateY(1px)}
+  button[disabled]{opacity:.6;cursor:progress}
+  .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;display:none}
+  button[disabled] .spin{display:inline-block}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .msg{display:none;margin-top:12px;padding:10px 12px;border-radius:10px;font-size:14px}
+  .msg.err{display:block;background:var(--err-bg);color:var(--err)}
+  .fine{margin:14px 0 0;font-size:12px;color:var(--muted);text-align:center}
+  .done{display:none;text-align:center;padding:8px 0 4px}
+  .done.show{display:block}
+  .tick{width:52px;height:52px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:grid;place-items:center;margin:0 auto 12px}
+  .done h2{font-size:19px;margin:0 0 6px}
+  .done p{margin:0 0 16px;color:var(--muted)}
+  .link{background:none;color:var(--ink);text-decoration:underline;padding:6px;width:auto;margin:0 auto;font-weight:500}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="card">
+  <form id="f" novalidate>
+    <span class="eyebrow"><span class="dot"></span>Sold out</span>
+    <h1>Get an email when it's back</h1>
+    <p class="sub">We'll send you one email the moment it's restocked. No spam, no newsletter.</p>
+
+    <div class="field">
+      <label for="sku">Product code (SKU)</label>
+      <input id="sku" name="sku" value="{{ sku }}" placeholder="e.g. MUG-STN-SAGE" autocomplete="off" list="skus" required maxlength="64" spellcheck="false" autocapitalize="characters">
+      <datalist id="skus"></datalist>
+    </div>
+    <div class="product" id="product" aria-live="polite">
+      <div class="thumb" id="thumb">·</div>
+      <div><div class="pname" id="pname"></div><div class="pmeta" id="pmeta"></div></div>
+      <span class="badge" id="pbadge">Sold out</span>
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email" required maxlength="254">
+    </div>
+
+    <button id="btn" type="submit"><span class="spin" aria-hidden="true"></span><span id="btxt">Notify me</span></button>
+    <div class="msg" id="msg" role="alert"></div>
+    <p class="fine">We only use your email for this alert.</p>
+  </form>
+
+  <div class="done" id="done" aria-live="polite">
+    <div class="tick"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h2 id="dtitle">You're on the list</h2>
+    <p id="dtext"></p>
+    <button class="link" type="button" id="again">Notify me about something else</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var products = {};
+  var $ = function(id){ return document.getElementById(id); };
+  var form = $('f'), btn = $('btn'), msg = $('msg'), skuIn = $('sku'), emailIn = $('email');
+
+  try { var saved = localStorage.getItem('bis_email'); if (saved) emailIn.value = saved; } catch(e) {}
+
+  fetch('/api/products').then(function(r){ return r.ok ? r.json() : {products: []}; }).then(function(d){
+    var list = $('skus');
+    (d.products || []).forEach(function(p){
+      products[p.sku] = p;
+      var o = document.createElement('option'); o.value = p.sku; o.label = p.name; list.appendChild(o);
+    });
+    showProduct();
+  }).catch(function(){});
+
+  function showProduct(){
+    var p = products[skuIn.value.trim().toUpperCase()];
+    var box = $('product');
+    if (!p) { box.classList.remove('show'); return; }
+    $('pname').textContent = p.name;
+    $('pmeta').textContent = (p.price ? p.price + ' · ' : '') + p.sku;
+    $('thumb').textContent = p.name.charAt(0);
+    var b = $('pbadge');
+    if (p.in_stock) { b.textContent = 'In stock'; b.className = 'badge in'; }
+    else { b.textContent = 'Sold out'; b.className = 'badge'; }
+    box.classList.add('show');
+  }
+  skuIn.addEventListener('input', showProduct);
+
+  function fail(text, field){
+    msg.textContent = text; msg.className = 'msg err';
+    if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+  }
+  [skuIn, emailIn].forEach(function(el){ el.addEventListener('input', function(){ el.removeAttribute('aria-invalid'); msg.className = 'msg'; }); });
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var sku = skuIn.value.trim().toUpperCase(), email = emailIn.value.trim();
+    if (!sku) return fail('Enter the product code.', skuIn);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return fail('That email doesn’t look right.', emailIn);
+    btn.disabled = true; $('btxt').textContent = 'Saving…'; msg.className = 'msg';
+
+    fetch('/api/requests', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email: email, sku: sku})})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ return {ok: r.ok, d: d}; }); })
+      .then(function(res){
+        if (!res.ok) { fail(res.d.message || 'Something went wrong. Please try again.', res.d.error === 'invalid_email' ? emailIn : res.d.error === 'invalid_sku' ? skuIn : null); return; }
+        try { localStorage.setItem('bis_email', email); } catch(e) {}
+        var name = res.d.product || sku;
+        var p = products[sku];
+        if (res.d.status === 'already_subscribed') {
+          $('dtitle').textContent = 'You’re already on the list';
+          $('dtext').textContent = 'We’ll email ' + email + ' once when ' + name + ' is back.';
+        } else if (p && p.in_stock) {
+          $('dtitle').textContent = 'Good news: it’s in stock';
+          $('dtext').textContent = name + ' is available right now. We’ve sent the link to ' + email + '.';
+        } else {
+          $('dtitle').textContent = 'You’re on the list';
+          $('dtext').textContent = 'We’ll email ' + email + ' the moment ' + name + ' is back. Just once, we promise.';
+        }
+        form.style.display = 'none'; $('done').classList.add('show');
+      })
+      .catch(function(){ fail('We couldn’t reach the server. Check your connection and try again.'); })
+      .then(function(){ btn.disabled = false; $('btxt').textContent = 'Notify me'; });
+  });
+
+  $('again').addEventListener('click', function(){
+    $('done').classList.remove('show'); form.style.display = ''; skuIn.value = ''; showProduct(); skuIn.focus();
+  });
+})();
+</script>
+</body>
+</html>

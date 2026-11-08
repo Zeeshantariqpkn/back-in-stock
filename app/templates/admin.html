@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Restock Alerts · Admin</title>
+<style>
+  :root{--bg:#F6F4EF;--card:#FFFFFF;--ink:#2B2A27;--muted:#6B6862;--line:#E6E2DA;--soft:#FAF8F4;
+    --open:#9A6B00;--open-bg:#FBF1D6;--send:#1F4E8C;--send-bg:#E2ECF8;--ok:#1F6B3A;--ok-bg:#E4F1E8;--bad:#B3261E;--bad-bg:#FCEDEC}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{background:var(--card);border-bottom:1px solid var(--line)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  .top{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{font-weight:700;font-size:16px;display:flex;align-items:center;gap:10px}
+  .logo{width:28px;height:28px;border-radius:8px;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:14px}
+  .live{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .pulse{width:8px;height:8px;border-radius:50%;background:#3BA55C}
+  main{padding:24px 0 48px}
+  h1{font-size:22px;margin:0 0 4px} .lede{color:var(--muted);margin:0 0 20px}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;text-decoration:none;color:inherit;display:block}
+  .stat.on{outline:2px solid var(--ink);outline-offset:-2px}
+  .stat .n{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:24px}
+  .bar{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .bar h2{font-size:15px;margin:0}
+  form.search{display:flex;gap:8px}
+  form.search input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 12px;width:240px;max-width:100%}
+  form.search button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:8px 14px;background:var(--ink);color:#fff;cursor:pointer}
+  .scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:10px 16px;background:var(--soft);border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+  .muted{color:var(--muted)} .small{font-size:12px}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .open{background:var(--open-bg);color:var(--open)} .sending{background:var(--send-bg);color:var(--send)}
+  .notified{background:var(--ok-bg);color:var(--ok)} .failed{background:var(--bad-bg);color:var(--bad)}
+  .empty{padding:40px 16px;text-align:center;color:var(--muted)}
+  .err{color:var(--bad);font-size:12px;margin-top:2px}
+  time{white-space:nowrap}
+  @media (max-width:760px){.stats{grid-template-columns:repeat(2,1fr)} .hide-sm{display:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap top">
+  <div class="brand"><span class="logo">↻</span>Restock Alerts</div>
+  <div class="live"><span class="pulse"></span>Auto-refresh every 15s</div>
+</div></header>
+
+<main class="wrap">
+  <h1>Back-in-stock requests</h1>
+  <p class="lede">Every customer waiting for a restock at {{ store }}, and when they were told.</p>
+
+  <div class="stats">
+    <a class="stat {{ 'on' if not status }}" href="/admin"><div class="n">{{ total }}</div><div class="l">All</div></a>
+    <a class="stat {{ 'on' if status=='open' }}" href="/admin?status=open"><div class="n">{{ counts.open }}</div><div class="l">Waiting</div></a>
+    <a class="stat {{ 'on' if status=='sending' }}" href="/admin?status=sending"><div class="n">{{ counts.sending }}</div><div class="l">Sending</div></a>
+    <a class="stat {{ 'on' if status=='notified' }}" href="/admin?status=notified"><div class="n">{{ counts.notified }}</div><div class="l">Notified</div></a>
+    <a class="stat {{ 'on' if status=='failed' }}" href="/admin?status=failed"><div class="n">{{ counts.failed }}</div><div class="l">Failed</div></a>
+  </div>
+
+  <section class="panel">
+    <div class="bar">
+      <h2>{% if status %}{{ status|capitalize }} requests{% else %}All requests{% endif %} <span class="muted">({{ rows|length }}{% if rows|length == 500 %}+{% endif %})</span></h2>
+      <form class="search" method="get" action="/admin">
+        {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+        <input type="search" name="q" value="{{ q }}" placeholder="Search email or SKU" aria-label="Search email or SKU">
+        <button type="submit">Search</button>
+      </form>
+    </div>
+    <div class="scroll">
+    {% if rows %}
+      <table>
+        <thead><tr><th>Customer</th><th>Product</th><th>Status</th><th>Requested</th><th>Notified</th><th class="hide-sm">Attempts</th></tr></thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.email }}</td>
+            <td>{% if r.product %}<div>{{ r.product }}</div>{% endif %}<div class="mono muted">{{ r.sku }}</div></td>
+            <td><span class="pill {{ r.status }}">{{ {'open':'Waiting','sending':'Sending','notified':'Notified','failed':'Failed'}[r.status] }}</span>
+              {% if r.last_error and r.status != 'notified' %}<div class="err" title="{{ r.last_error }}">Last try failed, retrying</div>{% endif %}</td>
+            <td><time datetime="{{ r.created_at }}">{{ r.created_at }}</time></td>
+            <td>{% if r.notified_at %}<time datetime="{{ r.notified_at }}">{{ r.notified_at }}</time>{% else %}<span class="muted">Not yet</span>{% endif %}</td>
+            <td class="hide-sm muted">{{ r.attempts }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">No requests {% if q or status %}match this filter{% else %}yet. They'll appear here as customers sign up{% endif %}.</div>
+    {% endif %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="bar"><h2>Latest stock webhooks</h2><span class="muted small">Duplicates are acknowledged and ignored; quantities are re-checked with the stock API.</span></div>
+    <div class="scroll">
+    {% if events %}
+      <table>
+        <thead><tr><th>Received</th><th>Event</th><th>SKU</th><th>Webhook said</th><th>Stock API said</th><th>Outcome</th></tr></thead>
+        <tbody>
+        {% for e in events %}
+          <tr><td><time datetime="{{ e.received_at }}">{{ e.received_at }}</time></td><td class="mono">{{ e.event_id }}</td>
+            <td class="mono">{{ e.sku }}</td><td>{{ e.claimed_qty }}</td>
+            <td>{{ e.verified_qty if e.verified_qty is not none else '—' }}</td><td class="muted">{{ e.outcome }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}<div class="empty">No webhooks received yet.</div>{% endif %}
+    </div>
+  </section>
+</main>
+<script>
+  var fmt = new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'short'});
+  document.querySelectorAll('time[datetime]').forEach(function(t){
+    var d = new Date(t.getAttribute('datetime')); if (!isNaN(d)) { t.title = t.getAttribute('datetime'); t.textContent = fmt.format(d); }
+  });
+  setTimeout(function(){ if (!document.activeElement || document.activeElement.tagName !== 'INPUT') location.reload(); }, 15000);
+</script>
+</body>
+</html>
